@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>安徽 WMS 数据大屏</title>
+  <style>
+    :root {
+      --bg: radial-gradient(circle at 30% 20%, #0b1b3f, #050a1a 55%);
+      --panel: rgba(18, 42, 92, 0.55);
+      --panel-strong: rgba(28, 69, 138, 0.7);
+      --line: rgba(82, 153, 255, 0.35);
+      --text: #e5f4ff;
+      --accent: #5edfff;
+      --accent-2: #14cfae;
+      --muted: #6b89c9;
+      --warn: #f9c74f;
+      --font-main: "Orbitron", "Segoe UI", sans-serif;
+      --font-body: "Segoe UI", "Inter", system-ui, -apple-system, sans-serif;
+      --shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+      overflow: hidden;
+    }
+    header {
+      text-align: center;
+      font-family: var(--font-main);
+      letter-spacing: 2px;
+      font-size: 26px;
+      color: #9cd3ff;
+      padding: 12px 0 18px;
+      text-transform: uppercase;
+      position: relative;
+    }
+    header::after, header::before {
+      content: "";
+      position: absolute;
+      height: 2px;
+      width: 24%;
+      top: 50%;
+      background: linear-gradient(90deg, transparent, #4fb3ff, transparent);
+    }
+    header::before { left: 4%; }
+    header::after { right: 4%; }
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 24% 52% 24%;
+      gap: 14px;
+      height: calc(100vh - 90px);
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid rgba(82, 153, 255, 0.3);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(6px);
+      padding: 12px 12px 10px;
+      position: relative;
+      overflow: hidden;
+    }
+    .panel::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border: 1px solid rgba(255,255,255,0.04);
+      border-radius: 12px;
+      pointer-events: none;
+    }
+    .panel + .panel { margin-top: 10px; }
+    .panel h3 {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      letter-spacing: 0.5px;
+    }
+    .panel h3::before {
+      content: "";
+      width: 6px;
+      height: 16px;
+      border-radius: 8px;
+      background: linear-gradient(180deg, #43c5ff, #2d7bff);
+      box-shadow: 0 0 8px rgba(94, 223, 255, 0.6);
+    }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .metric-card {
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 10px 12px;
+      text-align: center;
+      box-shadow: inset 0 0 18px rgba(94, 223, 255, 0.08);
+    }
+    .metric-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .metric-value {
+      font-family: var(--font-main);
+      font-size: 20px;
+      color: var(--accent);
+    }
+    .metric-sub {
+      font-size: 11px;
+      color: var(--accent-2);
+      margin-top: 2px;
+    }
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      color: #c7e1ff;
+      margin-top: 2px;
+    }
+    .table thead {
+      background: rgba(94, 223, 255, 0.06);
+    }
+    .table th, .table td {
+      padding: 6px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      text-align: center;
+      white-space: nowrap;
+    }
+    .table tbody tr:nth-child(odd) {
+      background: rgba(255,255,255,0.02);
+    }
+    .chart {
+      width: 100%;
+      height: 190px;
+    }
+    .map-wrap {
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at 50% 50%, rgba(42, 92, 189, 0.25), rgba(5, 10, 26, 0.7));
+      border: 1px solid rgba(82, 153, 255, 0.18);
+      border-radius: 12px;
+      position: relative;
+    }
+    .map-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px;
+      color: #d7edff;
+      font-size: 14px;
+    }
+    .map-title {
+      font-family: var(--font-main);
+      letter-spacing: 1px;
+      color: var(--accent);
+    }
+    .map-stats {
+      display: flex;
+      gap: 18px;
+      font-size: 13px;
+    }
+    .map-stats strong {
+      color: #5dd5ff;
+      margin-left: 4px;
+      font-size: 15px;
+    }
+    #map {
+      height: calc(100% - 48px);
+      width: 100%;
+    }
+    .legend {
+      position: absolute;
+      bottom: 12px;
+      right: 16px;
+      display: flex;
+      gap: 10px;
+      font-size: 11px;
+      background: rgba(0,0,0,0.35);
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(94, 223, 255, 0.2);
+    }
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: #a9c5ff;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    @media (max-width: 1200px) {
+      main { grid-template-columns: 1fr; height: auto; }
+      .panel { margin-bottom: 10px; }
+      .map-wrap { height: 420px; }
+    }
+  </style>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap">
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+</head>
+<body>
+  <header>安徽 WMS 数据中心</header>
+  <main>
+    <section class="left">
+      <div class="panel">
+        <div class="metrics">
+          <div class="metric-card">
+            <div class="metric-label">总仓库</div>
+            <div class="metric-value">42</div>
+            <div class="metric-sub">同比 +6%</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">总货位</div>
+            <div class="metric-value">1,482</div>
+            <div class="metric-sub">稼动率 50.6%</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">处理单数</div>
+            <div class="metric-value">392</div>
+            <div class="metric-sub">今日 +18</div>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>出入库数据</h3>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>日期</th><th>地区</th><th>仓库</th><th>入库量</th><th>出库量</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>2024-06-16</td><td>合肥</td><td>瑶海库</td><td>52,380</td><td>48,190</td></tr>
+            <tr><td>2024-06-16</td><td>芜湖</td><td>弋江库</td><td>18,220</td><td>21,440</td></tr>
+            <tr><td>2024-06-16</td><td>安庆</td><td>迎江库</td><td>13,560</td><td>10,480</td></tr>
+            <tr><td>2024-06-16</td><td>六安</td><td>金安库</td><td>9,380</td><td>8,760</td></tr>
+            <tr><td>2024-06-16</td><td>蚌埠</td><td>禹会库</td><td>10,140</td><td>11,520</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="panel">
+        <h3>出入库趋势</h3>
+        <div id="barChart" class="chart"></div>
+      </div>
+    </section>
+
+    <section class="center panel">
+      <div class="map-wrap">
+        <div class="map-header">
+          <div class="map-title">安徽板块</div>
+          <div class="map-stats">
+            <span>稼动率 <strong>50.6%</strong></span>
+            <span>总仓储容量 <strong>5,722,405</strong></span>
+          </div>
+        </div>
+        <div id="map"></div>
+        <div class="legend">
+          <span><span class="dot" style="background:#f9c74f"></span>重点库区</span>
+          <span><span class="dot" style="background:#5dd5ff"></span>常规库区</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="right">
+      <div class="panel">
+        <h3>物流数据</h3>
+        <table class="table">
+          <thead>
+            <tr><th>日期</th><th>仓库</th><th>总收货</th><th>收货批次</th><th>总发货</th><th>发货批次</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>2024-06-16</td><td>瑶海库</td><td>19,242</td><td>124</td><td>16,383</td><td>104</td></tr>
+            <tr><td>2024-06-16</td><td>弋江库</td><td>11,840</td><td>78</td><td>9,522</td><td>63</td></tr>
+            <tr><td>2024-06-16</td><td>迎江库</td><td>8,434</td><td>61</td><td>7,912</td><td>57</td></tr>
+            <tr><td>2024-06-16</td><td>金安库</td><td>6,214</td><td>49</td><td>5,881</td><td>44</td></tr>
+            <tr><td>2024-06-16</td><td>禹会库</td><td>7,310</td><td>55</td><td>6,944</td><td>51</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="panel">
+        <h3>库区类型存储统计</h3>
+        <div id="typeBar" class="chart"></div>
+      </div>
+      <div class="panel">
+        <h3>库区类型占比</h3>
+        <div id="typePie" class="chart"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const barChart = echarts.init(document.getElementById('barChart'));
+    barChart.setOption({
+      backgroundColor: 'transparent',
+      grid: { left: 45, right: 10, top: 20, bottom: 28 },
+      tooltip: { trigger: 'axis' },
+      xAxis: {
+        type: 'category',
+        data: ['合肥', '芜湖', '安庆', '六安', '蚌埠', '阜阳', '马鞍山'],
+        axisLine: { lineStyle: { color: '#3a6db3' } },
+        axisLabel: { color: '#c4defd' }
+      },
+      yAxis: {
+        type: 'value',
+        axisLine: { lineStyle: { color: '#3a6db3' } },
+        splitLine: { lineStyle: { color: 'rgba(90,137,204,0.2)' } },
+        axisLabel: { color: '#c4defd' }
+      },
+      legend: {
+        data: ['入库', '出库'],
+        textStyle: { color: '#dff1ff' },
+        right: 10,
+        top: 0
+      },
+      series: [
+        {
+          name: '入库',
+          type: 'bar',
+          data: [52, 44, 36, 30, 28, 22, 20],
+          barWidth: 12,
+          itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: '#5edfff' },
+            { offset: 1, color: '#2988ff' }
+          ]) }
+        },
+        {
+          name: '出库',
+          type: 'bar',
+          data: [48, 39, 31, 27, 26, 20, 18],
+          barWidth: 12,
+          itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: '#f9c74f' },
+            { offset: 1, color: '#f9844a' }
+          ]) }
+        }
+      ]
+    });
+
+    const typeBar = echarts.init(document.getElementById('typeBar'));
+    typeBar.setOption({
+      backgroundColor: 'transparent',
+      grid: { left: 40, right: 10, top: 20, bottom: 28 },
+      tooltip: { trigger: 'axis' },
+      xAxis: {
+        type: 'category',
+        data: ['自动化库', '立体库', '冷链库', '平库', '危险品库'],
+        axisLine: { lineStyle: { color: '#3a6db3' } },
+        axisLabel: { color: '#c4defd' }
+      },
+      yAxis: {
+        type: 'value',
+        axisLine: { lineStyle: { color: '#3a6db3' } },
+        splitLine: { lineStyle: { color: 'rgba(90,137,204,0.2)' } },
+        axisLabel: { color: '#c4defd' }
+      },
+      series: [{
+        type: 'bar',
+        barWidth: 16,
+        data: [68, 54, 38, 32, 14],
+        itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: '#14cfae' },
+          { offset: 1, color: '#0d8b78' }
+        ]) }
+      }]
+    });
+
+    const typePie = echarts.init(document.getElementById('typePie'));
+    typePie.setOption({
+      backgroundColor: 'transparent',
+      tooltip: { trigger: 'item' },
+      legend: {
+        orient: 'vertical',
+        right: 0,
+        top: 'center',
+        textStyle: { color: '#dff1ff', fontSize: 12 }
+      },
+      series: [{
+        name: '库区占比',
+        type: 'pie',
+        radius: ['40%', '68%'],
+        center: ['40%', '50%'],
+        label: { color: '#dff1ff' },
+        labelLine: { lineStyle: { color: '#5edfff' } },
+        data: [
+          { value: 36, name: '自动化库' },
+          { value: 28, name: '立体库' },
+          { value: 18, name: '冷链库' },
+          { value: 12, name: '平库' },
+          { value: 6, name: '危险品库' }
+        ],
+        itemStyle: {
+          borderWidth: 2,
+          borderColor: '#0b1b3f'
+        }
+      }]
+    });
+
+    const mapEl = echarts.init(document.getElementById('map'));
+    const cityData = [
+      { name: '合肥市', value: 120, special: true },
+      { name: '芜湖市', value: 95 },
+      { name: '蚌埠市', value: 70 },
+      { name: '淮南市', value: 66 },
+      { name: '马鞍山市', value: 60 },
+      { name: '淮北市', value: 40 },
+      { name: '铜陵市', value: 38 },
+      { name: '安庆市', value: 72, special: true },
+      { name: '黄山市', value: 32 },
+      { name: '滁州市', value: 58 },
+      { name: '阜阳市', value: 64 },
+      { name: '宿州市', value: 52 },
+      { name: '六安市', value: 55 },
+      { name: '亳州市', value: 33 },
+      { name: '池州市', value: 29 },
+      { name: '宣城市', value: 34 }
+    ];
+
+    fetch('https://geo.datav.aliyun.com/areas_v3/bound/340000_full.json')
+      .then(res => res.json())
+      .then(geoJson => {
+        echarts.registerMap('anhui', geoJson);
+        mapEl.setOption({
+          backgroundColor: 'transparent',
+          tooltip: {
+            trigger: 'item',
+            formatter: ({ name, value }) => `${name}<br/>活跃度：${value ? value : 0}`
+          },
+          visualMap: {
+            min: 20,
+            max: 130,
+            right: 10,
+            top: 20,
+            text: ['高', '低'],
+            textStyle: { color: '#dff1ff' },
+            inRange: { color: ['#0d3470', '#2793ff', '#5edfff'] },
+            calculable: true,
+            itemWidth: 10
+          },
+          series: [{
+            type: 'map',
+            map: 'anhui',
+            itemStyle: {
+              borderColor: 'rgba(94,223,255,0.6)',
+              borderWidth: 1.2
+            },
+            emphasis: {
+              label: { color: '#fff' },
+              itemStyle: { areaColor: '#f9c74f' }
+            },
+            data: cityData
+          },
+          {
+            type: 'effectScatter',
+            coordinateSystem: 'geo',
+            zlevel: 3,
+            rippleEffect: { brushType: 'stroke' },
+            itemStyle: {
+              color: '#f9c74f',
+              shadowBlur: 10,
+              shadowColor: '#f9c74f'
+            },
+            symbolSize: 10,
+            data: cityData.filter(c => c.special).map(c => ({ ...c, value: c.value }))
+          }]
+        });
+      })
+      .catch(() => {
+        mapEl.setOption({
+          title: {
+            text: '安徽地图加载失败',
+            left: 'center',
+            top: 'middle',
+            textStyle: { color: '#f9c74f' }
+          }
+        });
+      });
+  </script>
+</body>
+</html>
