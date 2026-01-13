@@ -430,65 +430,91 @@
       { name: '宣城市', value: 34 }
     ];
 
-    fetch('https://geo.datav.aliyun.com/areas_v3/bound/340000_full.json')
-      .then(res => res.json())
-      .then(geoJson => {
-        echarts.registerMap('anhui', geoJson);
-        mapEl.setOption({
-          backgroundColor: 'transparent',
-          tooltip: {
-            trigger: 'item',
-            formatter: ({ name, value }) => `${name}<br/>活跃度：${value ? value : 0}`
-          },
-          visualMap: {
-            min: 20,
-            max: 130,
-            right: 10,
-            top: 20,
-            text: ['高', '低'],
-            textStyle: { color: '#dff1ff' },
-            inRange: { color: ['#0d3470', '#2793ff', '#5edfff'] },
-            calculable: true,
-            itemWidth: 10
-          },
-          series: [{
-            type: 'map',
-            map: 'anhui',
-            itemStyle: {
-              borderColor: 'rgba(94,223,255,0.6)',
-              borderWidth: 1.2
-            },
-            emphasis: {
-              label: { color: '#fff' },
-              itemStyle: { areaColor: '#f9c74f' }
-            },
-            data: cityData
-          },
-          {
-            type: 'effectScatter',
-            coordinateSystem: 'geo',
-            zlevel: 3,
-            rippleEffect: { brushType: 'stroke' },
-            itemStyle: {
-              color: '#f9c74f',
-              shadowBlur: 10,
-              shadowColor: '#f9c74f'
-            },
-            symbolSize: 10,
-            data: cityData.filter(c => c.special).map(c => ({ ...c, value: c.value }))
-          }]
-        });
-      })
-      .catch(() => {
-        mapEl.setOption({
-          title: {
-            text: '安徽地图加载失败',
-            left: 'center',
-            top: 'middle',
-            textStyle: { color: '#f9c74f' }
-          }
-        });
+    function showMapError(message) {
+      mapEl.setOption({
+        title: {
+          text: message || '安徽地图加载失败',
+          left: 'center',
+          top: 'middle',
+          textStyle: { color: '#f9c74f' }
+        }
       });
+    }
+
+    function loadMapScript(urls) {
+      return new Promise((resolve, reject) => {
+        const tryLoad = (i) => {
+          if (i >= urls.length) return reject(new Error('all map cdns failed'));
+          const script = document.createElement('script');
+          script.src = urls[i];
+          script.onload = () => resolve(urls[i]);
+          script.onerror = () => tryLoad(i + 1);
+          document.head.appendChild(script);
+        };
+        tryLoad(0);
+      });
+    }
+
+    function detectMapName() {
+      const names = ['安徽', 'anhui'];
+      return names.find((n) => echarts.getMap(n));
+    }
+
+    function renderMap(mapName) {
+      mapEl.setOption({
+        backgroundColor: 'transparent',
+        tooltip: {
+          trigger: 'item',
+          formatter: ({ name, value }) => `${name}<br/>活跃度：${value ? value : 0}`
+        },
+        visualMap: {
+          min: 20,
+          max: 130,
+          right: 10,
+          top: 20,
+          text: ['高', '低'],
+          textStyle: { color: '#dff1ff' },
+          inRange: { color: ['#0d3470', '#2793ff', '#5edfff'] },
+          calculable: true,
+          itemWidth: 10
+        },
+        series: [{
+          type: 'map',
+          map: mapName,
+          itemStyle: {
+            borderColor: 'rgba(94,223,255,0.6)',
+            borderWidth: 1.2
+          },
+          emphasis: {
+            label: { color: '#fff' },
+            itemStyle: { areaColor: '#f9c74f' }
+          },
+          data: cityData
+        }]
+      });
+    }
+
+    // 加载安徽省地图（多 CDN 兜底，适合 GitHub Pages 无后端环境）
+    const mapUrls = [
+      'https://fastly.jsdelivr.net/npm/echarts@5/map/js/province/anhui.js',
+      'https://unpkg.com/echarts@5/map/js/province/anhui.js'
+    ];
+
+    const existing = detectMapName();
+    if (existing) {
+      renderMap(existing);
+    } else {
+      loadMapScript(mapUrls)
+        .then(() => {
+          const name = detectMapName();
+          if (name) {
+            renderMap(name);
+          } else {
+            showMapError('安徽地图未注册');
+          }
+        })
+        .catch(() => showMapError('安徽地图加载失败'));
+    }
   </script>
 </body>
 </html>
